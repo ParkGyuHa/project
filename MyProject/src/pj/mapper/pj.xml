@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="pj">
+	
+	<select id="loginCheck" resultType="String">
+		select name from pjmember
+		where userid=#{userid} and passwd=#{passwd}
+	</select>
+
+	<insert id="insert">
+		insert into pjmember (userid,passwd,name,email,phone)
+	     values (#{userid},#{passwd},#{name},#{email},#{phone})
+	</insert>
+
+	 <select id="list" resultType="pj.dto.pjDTO">
+		select *
+		from (
+		select A.*, rownum as rn
+			    from (
+						select num,writer,subject,reg_date,readcount
+						    ,filename,filesize,down,re_level
+						    ,(select count(*) from pjboard_comment 
+						        where board_num=num) comment_count, show
+						from pjboard
+						order by ref desc, re_step
+			    ) A
+			)
+			where rn between #{start} and #{end} 
+	  </select>
+  
+  <insert id="pageinsert">
+    insert into pjboard 
+	  (num,writer,subject,pawd,ref
+	  ,re_step,re_level,content,ip,filename,filesize)
+	values
+	  ( (select nvl(max(num)+1,1) from pjboard)
+	    ,#{writer},#{subject},#{pawd}
+	    ,(select nvl(max(num)+1,1) from pjboard)
+	    , 1, 0, #{content}, #{ip}, #{filename}, #{filesize} )	
+  </insert>
+  
+  <select id="getFileName" resultType="String">
+    select filename
+	from pjboard
+	where num=#{num}
+  </select>
+  
+  <update id="plusDown">
+    update pjboard set down=down+1 where num=#{num} 
+  </update>
+  
+  <select id="view" resultType="pj.dto.pjDTO">
+    select * from pjboard
+    where num=#{num}
+  </select>
+  
+  <update id="plusReadCount">
+    update pjboard set readcount=readcount+1 
+    where num=#{num}
+  </update>
+  
+  <select id="commentList" resultType="pj.dto.pjDTO">
+    select * from pjboard_comment
+    where board_num=#{num}
+  </select>
+  
+  <insert id="commentAdd">
+    insert into pjboard_comment
+	(comment_num,board_num,writer2,content2) values
+	((select nvl(max(comment_num)+1,1) from pjboard_comment)
+	, #{board_num}, #{writer2}, #{content2})
+  </insert>
+  
+  <update id="updateStep">
+    update pjboard
+	set re_step=re_step+1
+	where ref=#{ref} and re_step >= #{re_step}
+  </update>
+  
+  <insert id="reply">
+    insert into pjboard (num,writer,subject,pawd
+    ,ref,re_step,re_level,content,ip,filename,filesize)
+    values ((select nvl(max(num)+1,1) from pjboard),#{writer},
+    #{subject},#{pawd},#{ref},#{re_step},#{re_level},
+    #{content},#{ip},#{filename},#{filesize})
+  </insert>
+  
+  <select id="pass_check" resultType="String">
+    select pawd from pjboard
+	where num=#{num} and pawd=#{pawd}
+  </select>
+  
+  <update id="update">
+    update pjboard
+	set writer=#{writer}, subject=#{subject}, content=#{content}, 
+	filename=#{filename}, filesize=#{filesize}, down=#{down}
+	where num=#{num}
+  </update>
+  
+  <update id="delete">
+    update pjboard set show='n' 
+    where num=#{num}
+  </update>
+  
+  <select id="searchList" resultType="pj.dto.pjDTO">
+		select num,writer,subject,reg_date,readcount
+		    ,filename,filesize,down,re_level
+		    ,(select count(*) from pjboard_comment 
+		        where board_num=num) comment_count, show
+		from pjboard
+		<choose>
+			<when test="search_option != 'all'">
+				where ${search_option} like #{keyword}
+					and show='y'
+			</when>
+			<otherwise>
+				where	 ( writer like #{keyword}
+				 	or subject like #{keyword} 
+				 	or content like #{keyword} ) 
+				 	  and show='y'
+			</otherwise>
+		</choose>
+		order by ref desc, re_step 	
+	</select>
+	<select id="count" resultType="int">
+	   select count(*) from pjboard
+	</select>
+</mapper>
